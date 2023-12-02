@@ -1,0 +1,117 @@
+namespace: opengpts
+
+redis:
+  defines: runnable
+  inherits: redis/redis
+  metadata:
+    name: redis
+    description: >-
+      Redis service used by the backend for persistence and as a vector
+      database.
+    icon: >-
+      https://cdn.icon-icons.com/icons2/2415/PNG/512/redis_original_wordmark_logo_icon_146369.png
+  variables:
+    redis_disable_commands:
+      type: string
+      value: FLUSHDB,FLUSHALL,CONFIG
+      description: ''
+    redis_empty_password:
+      type: string
+      value: 'yes'
+      description: ''
+    redis_instance_name:
+      type: string
+      value: master
+      description: ''
+    redis_io_thread:
+      type: string
+      value: '1'
+      description: ''
+    redis_io_threads_do_reads:
+      type: string
+      value: 'yes'
+      description: ''
+    redis_port:
+      type: int
+      value: '6379'
+      description: ''
+
+backend:
+  defines: runnable
+  metadata:
+    name: backend
+    description: >-
+      Backend service for processing and serving API requests, uses Redis for
+      data storage.
+    icon: https://emojiapi.dev/api/v1/robot.svg
+  containers:
+    backend:
+      image: env-2077.registry.local/backend:main-cb75a99
+      build: .
+      dockerfile: Dockerfile
+  services:
+    backend-http:
+      description: HTTP port for backend API requests
+      container: backend
+      port: $port
+      host-port: $port
+      publish: true
+      protocol: tcp
+  connections:
+    redis-connection:
+      target: opengpts/redis
+      service: redis-svc
+      optional: true
+      description: >-
+        Connection to the Redis service for data storage and as a vector
+        database
+  variables:
+    port:
+      env: PORT
+      type: int
+      value: 8100
+      description: Port on which the backend service runs
+    redis-url:
+      env: REDIS_URL
+      type: string
+      value: <- connection-port("redis-connection")
+      description: URL for the Redis service
+    aws-access-key-id:
+      env: AWS_ACCESS_KEY_ID
+      type: string
+      value: your_aws_access_key_id
+      description: AWS access key ID for authentication
+    aws-secret-access-key:
+      env: AWS_SECRET_ACCESS_KEY
+      type: string
+      value: your_aws_secret_access_key
+      description: AWS secret access key for authentication
+
+frontend:
+  defines: runnable
+  metadata:
+    name: frontend
+    description: Frontend React application that interacts with the backend API.
+    icon: https://emojiapi.dev/api/v1/robot.svg
+  containers:
+    frontend:
+      image: env-2077.registry.local/frontend:main-cb75a99
+      build: .
+      dockerfile: Dockerfile.frontend
+  services:
+    http:
+      description: HTTP server for the frontend service
+      container: frontend
+      port: 80
+      host-port: 80
+      publish: true
+      protocol: tcp
+  connections: {}
+  variables: {}
+
+stack:
+  defines: group
+  members:
+    - opengpts/redis
+    - opengpts/backend
+    - opengpts/frontend
